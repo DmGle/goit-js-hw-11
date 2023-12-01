@@ -4,9 +4,30 @@ import { createImageCard } from './gallery';
 
 document.addEventListener('DOMContentLoaded', function () {
   const gallery = document.querySelector('.gallery');
+  const jsGuard = document.querySelector('.js-guard');
   let currentPage = 1;
   const imagesPerPage = 40;
-  let loading = false; // Додана змінна для уникнення повторних запитів
+  let loading = false;
+
+  // Створення обсервера
+  let options = {
+    root: null,
+    rootMargin: '250px',
+    threshold: 1.0,
+  };
+
+  let observer = new IntersectionObserver(onLoad, options);
+
+  function onLoad(entries, observer) {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        loadMoreImages();
+      }
+    });
+  }
+
+  // Додавання обсервера до jsGuard
+  observer.observe(jsGuard);
 
   function renderGallery(images) {
     if (images.length > 0) {
@@ -21,18 +42,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function loadMoreImages() {
     if (loading) return;
+
+    const searchInput = document.querySelector('.search-form input[name="searchQuery"]');
+    const searchQuery = searchInput.value.trim();
+
+    if (!searchQuery) {
+      console.error('Пошуковий запит порожній');
+      return;
+    }
+
     loading = true;
-  
-    const searchQuery = searchForm.elements.searchQuery.value;
-  
+
     try {
       const { images, totalHits } = await fetchImages(searchQuery, currentPage);
       renderGallery(images);
       handleLoadMoreBtn(totalHits);
       loading = false;
+      currentPage++;
     } catch (error) {
-      console.error('Error fetching images:', error.message);
-      Notiflix.Notify.failure('Error fetching images. Please try again.');
+      console.error('Помилка завантаження зображень:', error.message);
+      Notiflix.Notify.failure('Помилка завантаження зображень. Будь ласка, спробуйте ще раз.');
       loading = false;
     }
   }
@@ -44,13 +73,14 @@ document.addEventListener('DOMContentLoaded', function () {
       loadMoreBtn.style.display = totalHits > currentPage * imagesPerPage ? 'block' : 'none';
       if (totalHits <= currentPage * imagesPerPage) {
         loadMoreBtn.style.display = 'none';
-        Notiflix.Notify.warning("You've reached the end of search results.");
+        Notiflix.Notify.warning('Ви дійшли до кінця результатів пошуку.');
+        observer.disconnect(); // Відключаємо обсервер, оскільки далі завантажувати не потрібно
       }
     }
   }
 
   function showNoResultsMessage() {
-    const message = 'Sorry, there are no images matching your search query. Please try again.';
+    const message = 'Вибачте, зображень, що відповідають вашому запиту, не знайдено. Будь ласка, спробуйте ще раз.';
     Notiflix.Notify.failure(message);
   }
 
@@ -58,9 +88,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const scrollHeight = document.documentElement.scrollHeight;
     const scrollTop = window.scrollY;
     const clientHeight = document.documentElement.clientHeight;
+    const scrollThreshold = 200;
 
-    if (scrollTop + clientHeight >= scrollHeight - 200) {
-      currentPage++;
+    if (scrollTop + clientHeight >= scrollHeight - scrollThreshold) {
       loadMoreImages();
     }
   });
@@ -71,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function () {
     searchForm.addEventListener('submit', function (event) {
       event.preventDefault();
       currentPage = 1;
-      gallery.innerHTML = ''; // Очищаємо галерею при новому пошуку
+      gallery.innerHTML = '';
       loadMoreImages();
     });
   }
