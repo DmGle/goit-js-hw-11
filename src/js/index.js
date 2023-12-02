@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentPage = 1;
   const imagesPerPage = 40;
   let loading = false;
-
+  let isLastPage = false; // Додали змінну для визначення останньої сторінки
+  
   // Створення обсервера
   let options = {
     root: null,
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function onLoad(entries, observer) {
     entries.forEach(entry => {
-      if (entry.isIntersecting) {
+      if (entry.isIntersecting && !isLastPage) {
         loadMoreImages();
       }
     });
@@ -41,24 +42,33 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   async function loadMoreImages() {
-    if (loading) return;
-
+    if (loading || isLastPage) return;
+  
     const searchInput = document.querySelector('.search-form input[name="searchQuery"]');
     const searchQuery = searchInput.value.trim();
-
+  
     if (!searchQuery) {
       console.error('Пошуковий запит порожній');
       return;
     }
-
+  
     loading = true;
-
+  
     try {
-      const { images, totalHits } = await fetchImages(searchQuery, currentPage);
+      const { images, totalHits, totalPages } = await fetchImages(searchQuery, currentPage);
+  
+      if (currentPage === totalPages) {
+        isLastPage = true;
+        console.log('Це остання сторінка');
+      }
+  
       renderGallery(images);
       handleLoadMoreBtn(totalHits);
       loading = false;
-      currentPage++;
+  
+      if (!isLastPage) {
+        currentPage++;
+      }
     } catch (error) {
       console.error('Помилка завантаження зображень:', error.message);
       Notiflix.Notify.failure('Помилка завантаження зображень. Будь ласка, спробуйте ще раз.');
@@ -71,7 +81,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (loadMoreBtn) {
       loadMoreBtn.style.display = totalHits > currentPage * imagesPerPage ? 'block' : 'none';
-      if (totalHits <= currentPage * imagesPerPage) {
+
+      if (isLastPage) {
         loadMoreBtn.style.display = 'none';
         Notiflix.Notify.warning('Ви дійшли до кінця результатів пошуку.');
         observer.disconnect(); // Відключаємо обсервер, оскільки далі завантажувати не потрібно
@@ -102,6 +113,7 @@ document.addEventListener('DOMContentLoaded', function () {
       event.preventDefault();
       currentPage = 1;
       gallery.innerHTML = '';
+      isLastPage = false; // Скидаємо прапорець останньої сторінки
       loadMoreImages();
     });
   }

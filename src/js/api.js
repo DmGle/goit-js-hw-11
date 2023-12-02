@@ -13,10 +13,10 @@ export async function fetchImages(searchQuery, page) {
     const response = await axios.get(url);
     const data = response.data;
 
-    if (data.hits && data.hits.length > 0) {
-      return { images: data.hits, totalHits: data.totalHits };
+    if (data.totalHits > 0) {
+      return { images: data.hits, totalHits: data.totalHits, totalPages: Math.ceil(data.totalHits / imagesPerPage) };
     } else {
-      throw new Error('No images found');
+      return { images: [], totalHits: 0, totalPages: 0 };
     }
   } catch (error) {
     console.error('Error fetching images:', error.message);
